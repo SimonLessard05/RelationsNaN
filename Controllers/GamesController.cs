@@ -75,19 +75,18 @@ namespace RelationsNaN.Controllers
         // GET: Games/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null)
+            if (id == null || _context.Game == null)
             {
                 return NotFound();
             }
 
-            var game = await _context.Game.FindAsync(id);
+            var game = await _context.Game.Include(g => g.Platforms).FirstOrDefaultAsync(g => g.Id == id);
             if (game == null)
             {
                 return NotFound();
             }
-            if (game.Genre == null)
-                game.Genre = new Genre();
-            ViewData["GenreName"] = new SelectList(_context.Genre, "Name", "Name", game.Genre);
+            ViewData["GenreId"] = new SelectList(_context.Genre, "Id", "Name", game.GenreId);
+            ViewData["Platforms"] = new SelectList(_context.Platform.Where(g => !game.Platforms.Contains(g)), "Id", "Name");
             return View(game);
         }
 
@@ -123,9 +122,8 @@ namespace RelationsNaN.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            if (game.Genre == null)
-                game.Genre = new Genre();
-            ViewData["GenreName"] = new SelectList(_context.Genre, "Name", "Name", game.Genre);
+            ViewData["GenreId"] = new SelectList(_context.Genre, "Id", "Name", game.Genre);
+            ViewData["Platforms"] = new SelectList(_context.Platform.Where(x => !game.Platforms.Contains(x)), "id", "Name");
             return View(game);
         }
 
@@ -167,5 +165,37 @@ namespace RelationsNaN.Controllers
         {
             return _context.Game.Any(e => e.Id == id);
         }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AddPlatform(int id, int platformid)
+        {
+            var platform = _context.Platform.First(x => x.Id == platformid);
+            var game = _context.Game.Include(g => g.Platforms).First(x => x.Id == id);
+
+            if (game.Platforms.Contains(platform))
+                game.Platforms.Add(platform);
+
+            await _context.SaveChangesAsync();
+
+            ViewData["GenreId"] = new SelectList(_context.Genre, "Id", "Name", game.GenreId);
+            ViewData["Platforms"] = new SelectList(_context.Platform.Where(x => !game.Platforms.Contains(x)), "Id", "Name");
+            return View("Edit", game);
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemovePlatform(int id, int platformid)
+        {
+            var platform = _context.Platform.First(x => x.Id == platformid);
+            var game = _context.Game.Include(g => g.Platforms).First(x => x.Id == id);
+                game.Platforms.Remove(platform);
+
+            await _context.SaveChangesAsync();
+
+            ViewData["GenreId"] = new SelectList(_context.Genre, "Id", "Name", game.GenreId);
+            ViewData["Platforms"] = new SelectList(_context.Platform.Where(x => !game.Platforms.Contains(x)), "Id", "Name");
+            return View("Edit", game);
+        }
+
     }
 }
